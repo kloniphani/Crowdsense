@@ -1,0 +1,4 @@
+gmaps
+
+
+--extra-index-url https://repo.platform.here.com/artifactory/api/pypi/analytics-pypi/simple/ here-platform==2.10.0 here-geotiles==2.10.0 here-geopandas-adapter==2.10.0 here-content==2.10.0 here-inspector==2.10.0

@@ -9,6 +9,7 @@ from audio import *
 class dataset(Dataset):
 	def __init__(self, df, data_path, augment=False):
 		self.df = df
+		self.df.reset_index(drop=True, inplace=True)
 		self.data_path = str(data_path)
 		self.augment = augment
 		self.duration = 4000

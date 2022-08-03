@@ -1,6 +1,8 @@
 import json
 import torch
+import warnings
 
+warnings.filterwarnings('always')  # "error", "ignore", "always", "default", "module" or "once"
 
 if __name__ == "__main__":	
 	from model import *
@@ -27,7 +29,7 @@ if __name__ == "__main__":
 		layer_dim = 1
 		
 		dropout = 0.2
-		n_epochs = 1
+		n_epochs = 10
 		learning_rate = 1e-3
 		weight_decay = 1e-6
 		n_steps = 1

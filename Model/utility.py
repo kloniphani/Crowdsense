@@ -1,4 +1,5 @@
 
+import enum
 from tkinter import N
 import seaborn as sn
 import pandas as pd
@@ -159,6 +160,11 @@ class Optimisation():
 													epochs=num_epochs,
 													anneal_strategy='linear')
 
+		
+
+		lambda1 = lambda num_epochs: 0.95 ** num_epochs
+		scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda1)
+
 		for epoch in range(1, num_epochs + 1):
 			running_losses = []
 			correct_predictions = []
@@ -225,8 +231,9 @@ class Optimisation():
 					val = (sum(batch_val_acc)/sum(validations)) * 100
 					self.val_acc.append(val)
 
-			self.augmentation(records)
-
+			
+			self.train_loader = self.augmentation(records)
+			
 			print(f"[{epoch}/{num_epochs}] Training loss: {avg_loss:.4f}% \tTraining Accuracy: {acc:.4f}% \tValidation loss: {validation_loss:.4f}% \tValidation Accuracy: {val:.4f}%\n")
 
 		from pathlib import Path
@@ -328,7 +335,7 @@ class Optimisation():
 		report_path = model_dir/f'Report_{self.name}_{str(self.device)[:3]}_{datetime.now().strftime("%H-%M")}.json'
 
 
-		cf_matrix = confusion_matrix(self.y_true, self.y_pred, labels=[value for key, value in self.classes.items()])
+		cf_matrix = confusion_matrix(self.y_true, self.y_pred, labels=np.unique([value for key, value in self.classes.items()]))
 		df_cm = pd.DataFrame(cf_matrix/np.sum(cf_matrix)*10, index=[key for key, value in self.classes.items()], columns=[key for key, value in self.classes.items()])
 
 		plt.figure(figsize=(10, 8))
@@ -358,15 +365,15 @@ class Optimisation():
 				print(var)
 		"""
 		# classification report for precision, recall f1-score and accuracy
-		matrix = classification_report(self.y_true, self.y_pred, labels=[value for key, value in self.classes.items()])
+		matrix = classification_report(self.y_true, self.y_pred, labels=np.unique([value for key, value in self.classes.items()]))
 		print('Classification report : \n', matrix)
 		import json
 		with open(report_path, "w") as outfile:
-			matrix = classification_report(self.y_true, self.y_pred, labels=[value for key, value in self.classes.items()], output_dict=True)
+			matrix = classification_report(self.y_true, self.y_pred, labels=np.unique([value for key, value in self.classes.items()]), output_dict=True)
 			outfile.write(json.dumps(matrix, indent = 4))
 
 	# ----------------------------
-	# Augmrntation
+	# Augmentation
 	# ----------------------------
 	def augmentation (self, records):
 		from tqdm import tqdm
@@ -374,20 +381,24 @@ class Optimisation():
 		from torch.utils.data import DataLoader, ConcatDataset
 		from dataset import dataset
 
+		data_frame = pd.DataFrame()
+
 		with torch.no_grad():
 			with tqdm(total=int(len(records))) as pbar:
 				for record in records:
-					df = pd.DataFrame(record['data'][1], columns=['classID'])
+					df = pd.DataFrame()
+					df['classID'] = record['data'][1]
 					df['relative_path'] = record['data'][2]
+					df['class'] = df['relative_path'].apply(lambda x: str(x).split('\\')[1])
+					df['name'] = df['relative_path'].apply(lambda x: str(x).split('\\')[2])
 					df['prediction'] = record['predictions'].cpu().detach().numpy()
 					df = df[df['classID']!=df['prediction']]
+					del df['prediction']
 
-					AugmentedDATASET = dataset(self.dataset, self.original_data_dir, True)
-					NewDATASET = ConcatDataset([self.dataset, AugmentedDATASET])
-					self.train_loader = DataLoader(NewDATASET, batch_size=self.batch_size, shuffle=True, num_workers=self.worker)
-
+					data_frame = pd.concat([data_frame, df])
 					pbar.update(1)
-				
 
-
-
+			AugmentedDATASET = dataset(data_frame, self.original_data_dir, True)
+			NewDATASET = ConcatDataset([self.train_ds, AugmentedDATASET])
+						
+		return DataLoader(NewDATASET, batch_size=self.batch_size, shuffle=True, num_workers=self.worker)
